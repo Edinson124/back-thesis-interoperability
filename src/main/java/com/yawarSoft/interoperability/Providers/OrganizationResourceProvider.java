@@ -25,15 +25,15 @@ public class OrganizationResourceProvider implements IResourceProvider {
     }
 
     @Search
-    public Bundle searchActiveInternalBloodBanks(
-            @OptionalParam(name = "_page") String pageStr,
-            HttpServletRequest request
-    ) {
+    public Bundle searchActiveInternalBloodBanks(@OptionalParam(name = "_page") String pageStr,
+                                                 HttpServletRequest request) {
         int page = 1;
-        try {
-            page = Integer.parseInt(pageStr);
-        } catch (NumberFormatException | NullPointerException e) {
-            throw new InvalidRequestException("El parámetro page debe ser numérico");
+        if (pageStr != null && !pageStr.isBlank()) {
+            try {
+                page = Integer.parseInt(pageStr);
+            } catch (NumberFormatException e) {
+                throw new InvalidRequestException("El parámetro page debe ser numérico");
+            }
         }
 
         return bloodBankService.getPagedBloodBanks(10, page, request.getRequestURL().toString());
