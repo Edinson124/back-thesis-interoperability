@@ -9,8 +9,8 @@ import java.util.Arrays;
 public enum BloodSNOMED {
     A("A", "112144000", "Grupo sanguíneo A"),
     B("B", "112149005", "Grupo sanguíneo B"),
-    AB("AB", "112150005", "Grupo sanguíneo AB"),
-    O("O", "112153007", "Grupo sanguíneo O");
+    AB("AB", "165743006", "Grupo sanguíneo AB"),
+    O("O", "58460004", "Grupo sanguíneo O");
 
     private final String label;
     private final String snomedCode;
