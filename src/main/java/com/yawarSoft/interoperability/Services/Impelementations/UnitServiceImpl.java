@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+import static com.yawarSoft.interoperability.Utils.Constants.BASE_SYSTEM_CODE;
+
 @Service
 public class UnitServiceImpl implements UnitService {
 
@@ -35,7 +37,7 @@ public class UnitServiceImpl implements UnitService {
 
 
     @Override
-    public List<Observation> getStockByBloodBank(String bloodBankId) {
+    public Bundle getStockByBloodBank(String bloodBankId) {
         AuthExternalSystemEntity authExternalSystem = authenticatedExternalClientService.getExternalClient();
         Integer idBloodBankAuth = authExternalSystem.getBloodBank().getId();
 
@@ -54,7 +56,20 @@ public class UnitServiceImpl implements UnitService {
 
 
         List<StockResumenDTO> resumenDB = unitRepository.getResumenStockByBloodBank(id);
-        return buildObservations(resumenDB, id, nombreBanco);
+        List<Observation> observations = buildObservations(resumenDB, id, nombreBanco);
+        // Ahora crear el Bundle
+        Bundle bundle = new Bundle();
+        bundle.setType(Bundle.BundleType.SEARCHSET);
+        bundle.setId(UUID.randomUUID().toString());
+        bundle.setTimestamp(new Date());
+
+        for (Observation obs : observations) {
+            Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
+            entry.setResource(obs);
+            bundle.addEntry(entry);
+        }
+
+        return bundle;
     }
 
     private List<Observation> buildObservations(List<StockResumenDTO> resumenDB, Integer id, String nombreBanco) {
@@ -63,67 +78,90 @@ public class UnitServiceImpl implements UnitService {
                 .map(UnitTypes::getLabel)
                 .toList();
 
-        // Crear mapa para búsqueda rápida
         Map<String, StockResumenDTO> resumenMap = new HashMap<>();
         for (StockResumenDTO dto : resumenDB) {
             String key = dto.getBloodType() + "|" + dto.getUnitType();
             resumenMap.put(key, dto);
         }
 
-        // Crear listado final para todas las combinaciones
-        List<StockResumenDTO> resumenFinal = new ArrayList<>();
+        List<Observation> observations = new ArrayList<>();
+
         for (String blood : bloodTypes) {
             for (String unit : unitTypes) {
                 String key = blood + "|" + unit;
-                if (resumenMap.containsKey(key)) {
-                    resumenFinal.add(resumenMap.get(key));
-                } else {
-                    resumenFinal.add(new StockResumenDTO(blood, unit, 0L));
+
+                Long quantity = resumenMap.containsKey(key) ? resumenMap.get(key).getQuantity() : 0L;
+
+                Observation obs = new Observation();
+                obs.setId(IdType.newRandomUuid());
+                obs.setStatus(Observation.ObservationStatus.FINAL);
+
+                // ➕ Concepto estándar para representar "Stock de unidades de sangre"
+                obs.setCode(new CodeableConcept()
+                        .addCoding(new Coding()
+                                .setSystem("http://tuservidor/fhir/codesystem")
+                                .setCode("stock-unidades-sangre")
+                                .setDisplay("Stock de unidades de sangre"))
+                        .setText("Stock de unidades de sangre"));
+
+                // ➕ Quantity
+                obs.setValue(new Quantity().setValue(quantity).setUnit("unidades"));
+
+                // ➕ Grupo sanguíneo y Rh
+                String bloodGroup = blood.replace("+", "").replace("-", "");
+                boolean isRhPositive = blood.contains("+");
+                BloodSNOMED bloodSNOMED = BloodSNOMED.fromLabel(bloodGroup);
+
+                CodeableConcept bloodGroupConcept = new CodeableConcept()
+                        .addCoding(new Coding()
+                                .setSystem("http://snomed.info/sct")
+                                .setCode(bloodSNOMED.getSnomedCode())
+                                .setDisplay(bloodSNOMED.getDisplay()))
+                        .setText("Grupo sanguíneo " + bloodGroup);
+
+                CodeableConcept rhConcept = new CodeableConcept()
+                        .addCoding(new Coding()
+                                .setSystem("http://snomed.info/sct")
+                                .setCode(isRhPositive ? "165747007" : "165746003")
+                                .setDisplay(isRhPositive ? "Rh positivo" : "Rh negativo"))
+                        .setText("Factor Rh");
+
+                // ➕ Tipo de unidad
+                UnitTypes unitTypeEnum = UnitTypes.fromLabel(unit);
+                CodeableConcept unitTypeConcept = new CodeableConcept()
+                        .addCoding(new Coding()
+                                .setSystem("http://snomed.info/sct")
+                                .setCode(unitTypeEnum.getSnomedCode())
+                                .setDisplay(unitTypeEnum.getLabel()))
+                        .setText(unitTypeEnum.getLabel());
+
+                obs.addComponent(new Observation.ObservationComponentComponent()
+                        .setCode(new CodeableConcept().setText("Grupo sanguíneo"))
+                        .setValue(bloodGroupConcept));
+
+                obs.addComponent(new Observation.ObservationComponentComponent()
+                        .setCode(new CodeableConcept().setText("Factor Rh"))
+                        .setValue(rhConcept));
+
+                obs.addComponent(new Observation.ObservationComponentComponent()
+                        .setCode(new CodeableConcept().setText("Tipo de unidad"))
+                        .setValue(unitTypeConcept));
+
+                // ➕ Si aplica método de Aféresis
+                if (unitTypeEnum.getApheresisMethodCode() != null) {
+                    obs.setMethod(new CodeableConcept()
+                            .addCoding(new Coding()
+                                    .setSystem("http://snomed.info/sct")
+                                    .setCode(unitTypeEnum.getApheresisMethodCode())
+                                    .setDisplay("Apheresis - action"))
+                            .setText("Apheresis"));
                 }
+
+                // ➕ Asignamos Organization
+                obs.addPerformer(new Reference("Organization/" + id).setDisplay(nombreBanco));
+
+                observations.add(obs);
             }
-        }
-
-        // Ahora construir las Observation
-        List<Observation> observations = new ArrayList<>();
-
-        for (StockResumenDTO stock : resumenFinal) {
-            Observation obs = new Observation();
-            obs.setId(IdType.newRandomUuid());
-            obs.setStatus(Observation.ObservationStatus.FINAL);
-            obs.setCode(new CodeableConcept().setText(stock.getUnitType()));
-            obs.setValue(new Quantity().setValue(stock.getQuantity()).setUnit("unidades"));
-
-            String fullType = stock.getBloodType();
-            String bloodGroup = fullType.replace("+", "").replace("-", "");
-            boolean isRhPositive = fullType.contains("+");
-
-            BloodSNOMED bloodSNOMED = BloodSNOMED.fromLabel(bloodGroup);
-
-            CodeableConcept bloodGroupConcept = new CodeableConcept()
-                    .addCoding(new Coding()
-                            .setSystem("http://snomed.info/sct")
-                            .setCode(bloodSNOMED.getSnomedCode())
-                            .setDisplay(bloodSNOMED.getDisplay()))
-                    .setText("Grupo sanguíneo " + bloodGroup);
-
-            CodeableConcept rhConcept = new CodeableConcept()
-                    .addCoding(new Coding()
-                            .setSystem("http://snomed.info/sct")
-                            .setCode(isRhPositive ? "165747007" : "165746003")
-                            .setDisplay(isRhPositive ? "Rh positivo" : "Rh negativo"))
-                    .setText("Factor Rh");
-
-            obs.addComponent(new Observation.ObservationComponentComponent()
-                    .setCode(new CodeableConcept().setText("Grupo sanguíneo"))
-                    .setValue(bloodGroupConcept));
-
-            obs.addComponent(new Observation.ObservationComponentComponent()
-                    .setCode(new CodeableConcept().setText("Factor Rh"))
-                    .setValue(rhConcept));
-
-            obs.addPerformer(new Reference("Organization/" + id).setDisplay(nombreBanco));
-
-            observations.add(obs);
         }
 
         return observations;

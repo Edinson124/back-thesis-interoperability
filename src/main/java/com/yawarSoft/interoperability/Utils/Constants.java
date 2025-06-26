@@ -13,6 +13,8 @@ public class Constants {
     // System base para identifiers
     public static final String BASE_SYSTEM = "http://yawarsoft.com/fhir/sid/";
 
+    public static final String BASE_SYSTEM_CODE = "http://yawarsoft.com/fhir/codesystem/";
+
     public static Long getTimeToken(){
         Duration expiration = Duration.ofHours(4);
         return System.currentTimeMillis() + expiration.toMillis();
