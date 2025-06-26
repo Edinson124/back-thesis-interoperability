@@ -99,7 +99,7 @@ public class UnitServiceImpl implements UnitService {
                 // ➕ Concepto estándar para representar "Stock de unidades de sangre"
                 obs.setCode(new CodeableConcept()
                         .addCoding(new Coding()
-                                .setSystem("http://tuservidor/fhir/codesystem")
+                                .setSystem(BASE_SYSTEM_CODE)
                                 .setCode("stock-unidades-sangre")
                                 .setDisplay("Stock de unidades de sangre"))
                         .setText("Stock de unidades de sangre"));
