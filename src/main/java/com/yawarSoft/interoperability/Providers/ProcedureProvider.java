@@ -33,11 +33,8 @@ public class ProcedureProvider implements IResourceProvider {
     }
 
     @Search
-    public Bundle searchProcedures(
-            @RequiredParam(name = "subject.identifier") TokenParam identifier,
-            @RequiredParam(name = "code") TokenParam code)
+    public Bundle searchProcedures(@RequiredParam(name = "subject.identifier") TokenParam identifier, @RequiredParam(name = "code") TokenParam code)
     {
-        // Leer los datos del identifier
         String system = identifier.getSystem();
         String value = identifier.getValue();
 
@@ -46,7 +43,6 @@ public class ProcedureProvider implements IResourceProvider {
         }
 
         String documentType = DocumentType.fromSystem(system).getCode();
-
         List<Procedure> procedures = List.of();
 
         if (DONATION_CODE.equals(code.getValue())) {
@@ -59,7 +55,6 @@ public class ProcedureProvider implements IResourceProvider {
             procedures = List.of();
         }
 
-        // Crear el Bundle de retorno
         Bundle bundle = new Bundle();
         bundle.setType(Bundle.BundleType.SEARCHSET);
         procedures.forEach(proc -> bundle.addEntry().setResource(proc));

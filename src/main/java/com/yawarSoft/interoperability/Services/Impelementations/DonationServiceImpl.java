@@ -81,7 +81,7 @@ public class DonationServiceImpl implements DonationService {
 
         if (statusEnum == DonationStatus.FINISHED_TEMP_DEFER || statusEnum == DonationStatus.FINISHED_PERM_DEFER) {
             procedure.addNote(new Annotation()
-                    .setText(entity.getStatus()));
+                    .setText(entity.getStatus() + " - "+entity.getDeferralReason()));
         }
 
         return procedure;

@@ -11,8 +11,6 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Observation;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class ObservationResourceProvider implements IResourceProvider {
 
@@ -33,10 +31,10 @@ public class ObservationResourceProvider implements IResourceProvider {
         String idSolo;
 
         if (input.matches("\\d+")) {
-            // Es solo el ID numérico
+            // ID numérico
             idSolo = input;
         } else if (input.matches("Organization/\\d+")) {
-            // Es el formato Organization/2
+            // formato Organization/2
             idSolo = input.split("/")[1];
         } else {
             throw new InvalidRequestException("El parámetro performer debe ser un ID numérico o 'Organization/{id}'");
