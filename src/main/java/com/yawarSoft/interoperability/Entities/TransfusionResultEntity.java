@@ -28,7 +28,7 @@ public class TransfusionResultEntity {
     @Column(name = "transfusion_by_name")
     private String transfusionByName;
 
-    @Column(name = "transfusion_by_license_number")
+    @Column(name = "transfusion_by_document_number")
     private String transfusionByLicenseNumber;
 
     @Column(name = "has_reaction")
